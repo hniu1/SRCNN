@@ -40,7 +40,7 @@ def read_data(tt,var):
 
 def read_WRF(tt,var):
     if(var == "RAIN"):
-        fil        = Dataset(f'./{var}_TOT_daily_WRF_CONUS_1980-2019_xlatxlon_sep13_117-73W.nc')
+        fil        = Dataset(f'./data/{var}_TOT_daily_WRF_CONUS_1980-2019_xlatxlon_sep13_117-73W.nc')
     else:
          fil        = Dataset(f'../WRF-ERA5/WRF/{var}/{var}_daily_WRF_CONUS_1980-2019test.nc')
     hr_var     = fil.variables[f'{var}'][0:tt,:,:]
@@ -50,7 +50,7 @@ def read_WRF(tt,var):
     return hr_var,broadcasted_time
 
 def read_ERA5(tt1,tt2,var):
-    fil        = Dataset(f'./ERA5_{var}_daily_1980-2019_sep13_117-73W-wrfgrid.nc')
+    fil        = Dataset(f'./data/ERA5_{var}_daily_1980-2019_sep13_117-73W-wrfgrid.nc')
     temp       = fil.variables[f'{var}'][tt1:tt2,:,:]
     temp1      = temp[:,:,:]
     temp1      = np.where(temp1 < 0,0,temp1)
@@ -61,7 +61,7 @@ def read_ERA5(tt1,tt2,var):
     return lr_var
 
 def read_elev(tt):
-    felev      = Dataset(f'./HGT_WRF_CONUS_xlatxlon_regrid_sep13_117-73W.nc')
+    felev      = Dataset(f'./data/HGT_WRF_CONUS_xlatxlon_regrid_sep13_117-73W.nc')
     elev1      = felev.variables["HGT"]
     elev       = np.tile(elev1,(tt,1,1))
     return elev
@@ -114,11 +114,11 @@ def model_fit(X_train ,y_train,X_test,y_test, callbacks):
     print(history.history.keys())
     train_loss = history.history['loss']
     val_loss   = history.history['val_loss']
-    np.save(f'./train_loss_fsrcnn_daily_{exp}.npy',train_loss)
-    np.save(f'./val_loss_fsrcnn_daily_{exp}.npy',val_loss)
+    np.save(f'./output/train_loss_fsrcnn_daily_{exp}.npy',train_loss)
+    np.save(f'./output/val_loss_fsrcnn_daily_{exp}.npy',val_loss)
     time       = cb.logs
-    np.save(f'./time_fsrcnn_daily_{exp}.npy',time)
-    model.save(f'./my_model_fsrcnn_daily_{exp}.h5')
+    np.save(f'./output/time_fsrcnn_daily_{exp}.npy',time)
+    model.save(f'./output/my_model_fsrcnn_daily_{exp}.h5')
     return model 
 
 def predict(X,model):
