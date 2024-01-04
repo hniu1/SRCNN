@@ -1,0 +1,75 @@
+Followed the instructions sent by olcf
+
+
+###
+module load python/3.7-anaconda3
+conda create --name tf_env
+You will then need to enter y at the prompt to create the environment.
+
+Then you will need to activate the environment and install an updated version of tensorflow:
+
+conda activate tf_env
+conda install -c anaconda tensorflow-gpu
+Again you will need to enter y at a prompt to complete the installation.
+
+Then, in your script you will need to change python to python/3.7-anaconda3 and also add a line to activate your conda environment.
+
+module load python/3.7-anaconda3
+module load cuda
+conda activate tf_env
+You should then be able to verify that tensor flow sees the GPUs by using either of the following:
+
+import tensorflow as tf
+
+print(tf.config.experimental.list_physical_devices('GPU'))
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+###
+
+conda activate env does not work and you have to use source activate env instead. When running using the bash script first deactivate the environment from command line and then submit the job using bash script and source activate env 
+
+I also had to install netCDF4, openCV, scikit-learn and keras==2.3.1
+
+Then I had to modify the way I load the keras library in the python script
+
+import numpy as np
+import tensorflow as tf
+import os
+from netCDF4 import Dataset
+import cv2
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Activation,Conv2D, MaxPooling2D, Input, ZeroPadding2D, add, Conv2DTranspose, PReLU
+from timeit import default_timer as timer
+from tensorflow.keras.optimizers import Adam
+
+
+to run the network on gpu add following lines, just before calling the function that runs network
+
+
+os.environ["CUDA_VISIBLE_DEVICES"] = '1' #use GPU with ID=1
+config = tf.compat.v1.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.5 # maximun alloc gpu50% of MEM
+config.gpu_options.allow_growth = True #allocate dynamically
+sess = tf.compat.v1.Session(config=config)
+tf.compat.v1.keras.backend.set_session(sess)
+print(tf.config.experimental.list_physical_devices('GPU'))
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+
+And the submission script looks like below
+
+#!/bin/bash
+#SBATCH -A cli138
+#SBATCH -J exp12
+#SBATCH -N 1
+#SBATCH -p gpu
+#SBATCH --mail-user=rastogid@ornl.gov
+#SBATCH -t 20:00:00
+module load python/3.7-anaconda3
+module load cuda
+source activate tf_env1
+srun -n 1 python FSRCNN-ESM-daily-exp13.py
+
+
+The environment is exported to  environment.yml
