@@ -1,3 +1,8 @@
+'''
+super-resolution deconvolutional neural network ({res})
+The implementation of {res}
+'''
+
 import numpy as np
 import tensorflow as tf
 import os
@@ -50,9 +55,10 @@ def read_WRF(tt,var):
     return hr_var,broadcasted_time
 
 def read_ERA5(tt1,tt2,var):
-    fil        = Dataset(f'./data/ERA5_{var}_daily_1980-2019_sep13_117-73W-wrfgrid.nc')
+    fil        = Dataset(f'./data/ERA5_{var}_daily_1980-2019_sep13_117-73W.nc') # low resolution data
     temp       = fil.variables[f'{var}'][tt1:tt2,:,:]
-    temp1      = temp[:,:,:]
+    # temp1      = temp[:,:,:]
+    temp1      = temp[:,::-1,:]
     temp1      = np.where(temp1 < 0,0,temp1)
     if(var == "tp"):
         lr_var     = temp1*1000
@@ -61,8 +67,9 @@ def read_ERA5(tt1,tt2,var):
     return lr_var
 
 def read_elev(tt):
-    felev      = Dataset(f'./data/HGT_WRF_CONUS_xlatxlon_regrid_sep13_117-73W.nc')
+    felev      = Dataset(f'./data/HGT_WRF_CONUS_xlatxlon_ERAregrid_sep13_117-73W.nc') # lr elevation data
     elev1      = felev.variables["HGT"]
+    elev1 = elev1[::-1,:]
     elev       = np.tile(elev1,(tt,1,1))
     return elev
 
@@ -89,8 +96,8 @@ def split(lr,hr):
     return(X_train, X_test, y_train, y_test)
 
 def calculate_performance(y_true, y_pred):
-    mse = mean_squared_error(y_true, y_pred)
-    mae = mean_absolute_error(y_true, y_pred)
+    mse = mean_squared_error(y_true.flatten(), y_pred.flatten())
+    mae = mean_absolute_error(y_true.flatten(), y_pred.flatten())
     print(f"Mean Squared Error: {mse}")
     print(f"Mean Absolute Error: {mae}")
 
@@ -101,24 +108,31 @@ def model_fit(X_train ,y_train,X_test,y_test, callbacks):
     model.add(Conv2D(64, kernel_size=(9, 9), activation='relu', padding='same', input_shape=(inshp[1],inshp[2],inshp[3])))
 
     # Layer 2
-    model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', padding='same'))
+    model.add(Conv2D(32, kernel_size=(1, 1), activation='relu', padding='same'))
 
     # Layer 3
-    model.add(Conv2D(1, kernel_size=(5, 5), activation='linear', padding='same'))
+    model.add(Conv2D(12, kernel_size=(3, 3), activation='relu', padding='same'))
+
+    # Layer 4
+    model.add(Conv2D(64, kernel_size=(1, 1), activation='relu', padding='same'))
+
+    # Layer 5
+    model.add(Conv2DTranspose(1, kernel_size=(9, 9), strides=(2, 2), activation='relu', padding='same'))
+
 
     model.summary()
     cb         = TimingCallback()
     optimizer  = Adam(lr=0.0001)
     model.compile(optimizer=optimizer, loss='mean_squared_error', metrics=['mean_squared_error'])
-    history    = model.fit(X_train ,y_train, validation_split=0.1,batch_size=10,epochs=50,shuffle=True,callbacks=callbacks)
+    history    = model.fit(X_train, y_train, validation_split=0.1,batch_size=32,epochs=50,shuffle=True,callbacks=callbacks)
     print(history.history.keys())
     train_loss = history.history['loss']
     val_loss   = history.history['val_loss']
-    np.save(f'./output/train_loss_fsrcnn_daily_{exp}.npy',train_loss)
-    np.save(f'./output/val_loss_fsrcnn_daily_{exp}.npy',val_loss)
+    np.save(f'./output/{res}/train_loss_{res}_daily_{exp}.npy',train_loss)
+    np.save(f'./output/{res}/{res}val_loss_{res}_daily_{exp}.npy',val_loss)
     time       = cb.logs
-    np.save(f'./output/time_fsrcnn_daily_{exp}.npy',time)
-    model.save(f'./output/my_model_fsrcnn_daily_{exp}.h5')
+    np.save(f'./output/{res}/time_{res}_daily_{exp}.npy',time)
+    model.save(f'./output/{res}/my_model_{res}_daily_{exp}.h5')
     return model 
 
 def predict(X,model):
@@ -133,7 +147,7 @@ def invtrans_write(y,scalar,name,exp):
     y      = y.flatten()
     yinv   = scalar.inverse_transform(y.reshape(-1, 1))
     yinv   = np.reshape(yinv,(tt,nhr1,nhr2,1))
-    np.save(f'./{name}_fsrcnn_daily_{exp}.npy',yinv)
+    np.save(f'./output/{res}/{name}_{res}_daily_{exp}.npy',yinv)
 
 def main():
     nyear = 30
@@ -146,8 +160,8 @@ def main():
     tt   = tt10
     nhr1 = 210
     nhr2 = 354
-    nlr1 = 210
-    nlr2 = 354
+    nlr1 = 105
+    nlr2 = 177
 # Read variables nd generate low resolution version
     # WRF refers to Weather Research and Forecasting Model
     # ERA refers to the global atmospheric reanalysis produced by the European Centre for Medium-Range Weather Forecasts (ECMWF).
@@ -170,8 +184,7 @@ def main():
     elev_scaled = minmaxscaler(elev)
 
 #Final high-res (y) and low-res data (x)
-    #hr               = np.concatenate((hr_prect_scaled,time),axis=3)
-    hr               = np.concatenate((hr_prect_scaled,elev_scaled),axis=3)
+    hr               = np.concatenate((hr_prect_scaled,time),axis=3)
     #lr              = lr_prect_scaled#np.concatenate((lr_prect_scaled,lr_z500_scaled,lr_tmq_scaled,lr_omega500_scaled,lr_fsns_scaled,lr_flns_scaled,lr_ts_scaled,lr_elev_scaled),axis=3)
     lr              = lr_prect_scaled[0:tt,:,:,:]
     lr              = np.concatenate((lr,elev_scaled),axis=3)
@@ -187,7 +200,7 @@ def main():
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
     # TensorBoard callback
-    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_dir = f"logs/fit_{res}/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     os.makedirs(log_dir, exist_ok=True)
     tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
     callbacks = [tensorboard_callback]
@@ -195,6 +208,7 @@ def main():
     model = model_fit(X_train[:,:,:,:] ,y_train[:,:,:,0:1],X_test[:,:,:,:],y_test[:,:,:,0:1], callbacks)
 
     X_val1        = np.concatenate((lr_prect_scaled[0:tt5,:,:,:],elev_scaled[0:tt5,:,:,:]),axis=3)
+    # X_val1        = lr_prect_scaled[0:tt5,:,:,:]
     y_val1_predict = predict(X_val1,model)
     y_test_predict = predict(X_test,model)
 
@@ -216,4 +230,6 @@ def main():
     #invtrans_write(y_val4_predict,scaler_hrprect,"y_val4_predict",exp)
 
 if __name__ == "__main__":
+    res = 'fsrcnn'
+    os.makedirs(f'./output/{res}', exist_ok=True)
     main()
