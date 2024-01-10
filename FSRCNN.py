@@ -157,8 +157,6 @@ def invtrans_write(y,scalar,name,exp):
     yinv   = np.reshape(yinv,(tt,nhr1,nhr2,1))
     np.save(f'./output/{res}/{name}_{res}_daily_{exp}.npy',yinv)
 
-def preprocess_hr()
-
 def main():
     nyear = 30
     tt5  = 365*5  + 2
