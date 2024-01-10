@@ -8,11 +8,11 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import mean_squared_error
 
 def read_data(var,exp):
-    X_test = np.load(f'./output/X_test_fsrcnn_daily_{exp}.npy')
-    y_test = np.load(f'./output/y_test_fsrcnn_daily_{exp}.npy')
-    y_test_predict = np.load(f'./output/y_test_predict_fsrcnn_daily_{exp}.npy')
-    valloss = np.load(f'./output/val_loss_fsrcnn_daily_{exp}.npy')
-    trainloss = np.load(f'./output/train_loss_fsrcnn_daily_{exp}.npy')
+    X_test = np.load(f'./output/{res}/X_test_fsrcnn_daily_{exp}.npy')
+    y_test = np.load(f'./output/{res}/y_test_fsrcnn_daily_{exp}.npy')
+    y_test_predict = np.load(f'./output/{res}/y_test_predict_fsrcnn_daily_{exp}.npy')
+    valloss = np.load(f'./output/{res}/val_loss_fsrcnn_daily_{exp}.npy')
+    trainloss = np.load(f'./output/{res}/train_loss_fsrcnn_daily_{exp}.npy')
     return X_test,y_test,y_test_predict,valloss,trainloss
     # return y_test,y_test_predict,valloss,trainloss
 
@@ -98,7 +98,8 @@ def main():
 
 
 if __name__ == "__main__":
-    path_plot = 'visual'
+    res = 'fsrcnn'
+    path_plot = f'visual/{res}'
     os.makedirs(path_plot, exist_ok=True)
 
     main()

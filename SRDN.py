@@ -1,6 +1,6 @@
 '''
-super-resolution deconvolutional neural network ({res})
-The implementation of {res}
+super-resolution deconvolutional neural network (SRDN)
+The implementation of SRDN
 '''
 
 import numpy as np
