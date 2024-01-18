@@ -201,10 +201,10 @@ def main():
     lr              = np.concatenate((lr,elev_scaled),axis=3)
     X_train, X_test, y_train, y_test = split(lr,hr)
 
+    os.environ["CUDA_VISIBLE_DEVICES"] = '2,3' #use GPU with ID=1
     strategy = tf.distribute.MirroredStrategy()
     print("Number of devices: {}".format(strategy.num_replicas_in_sync))
     # os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"  # Specify which GPUs to use
-    # os.environ["CUDA_VISIBLE_DEVICES"] = '1' #use GPU with ID=1
     
     config = tf.compat.v1.ConfigProto()
     # config.gpu_options.per_process_gpu_memory_fraction = 0.5 # maximun alloc gpu50% of MEM
@@ -213,6 +213,8 @@ def main():
     tf.compat.v1.keras.backend.set_session(sess)
     print(tf.config.experimental.list_physical_devices('GPU'))
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+    tf.debugging.set_log_device_placement(True)
+
 
     # TensorBoard callback
     log_dir = f"logs/fit_{res}/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
