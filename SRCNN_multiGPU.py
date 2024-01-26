@@ -29,6 +29,7 @@ import time
 
 # Specify the details of experiment here
 exp = "v123"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1" # use one avaiable GPU
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
 class TimingCallback(keras.callbacks.Callback):
@@ -123,8 +124,9 @@ def get_compiled_model(X_train):
 
     return model
 
-def model_fit(train_dataset, val_dataset, model, callbacks):
-    cb         = TimingCallback()
+def model_fit(train_dataset, val_dataset, model, tensorboard_callback):
+    cb = TimingCallback()
+    callbacks = [tensorboard_callback, cb]
 
     # history    = model.fit(X_train, y_train, validation_split=0.1,batch_size=32,epochs=50,shuffle=True,callbacks=callbacks)
     history = model.fit(train_dataset, validation_data=val_dataset, epochs=50, shuffle=True, callbacks=callbacks)
@@ -133,7 +135,7 @@ def model_fit(train_dataset, val_dataset, model, callbacks):
     train_loss = history.history['loss']
     val_loss   = history.history['val_loss']
     np.save(f'./output/{res}/train_loss_{res}_daily_{exp}.npy',train_loss)
-    np.save(f'./output/{res}/{res}val_loss_{res}_daily_{exp}.npy',val_loss)
+    np.save(f'./output/{res}/val_loss_{res}_daily_{exp}.npy',val_loss)
     time       = cb.logs
     np.save(f'./output/{res}/time_{res}_daily_{exp}.npy',time)
     model.save(f'./output/{res}/my_model_{res}_daily_{exp}.h5')
@@ -203,7 +205,6 @@ def main():
     train_dataset = tf.data.Dataset.from_tensor_slices((X_train, y_train[:,:,:,0:1]))
     test_dataset = tf.data.Dataset.from_tensor_slices((X_test, y_test))
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "" # use all avaiable GPUs
     # strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy() # if multi node and multi GPU
     strategy = tf.distribute.MirroredStrategy() # if single node and multi GPU
     print("Number of devices: {}".format(strategy.num_replicas_in_sync))
@@ -221,7 +222,7 @@ def main():
     test_dataset = test_dataset.with_options(options)
 
     config = tf.compat.v1.ConfigProto()
-    # config.gpu_options.per_process_gpu_memory_fraction = 0.5 # maximun alloc gpu50% of MEM
+    config.gpu_options.per_process_gpu_memory_fraction = 0.5 # maximun alloc gpu50% of MEM
     config.gpu_options.allow_growth = True #allocate dynamically
     sess = tf.compat.v1.Session(config=config) 
     tf.compat.v1.keras.backend.set_session(sess)
@@ -234,14 +235,15 @@ def main():
     log_dir = f"logs/fit_{res}/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     os.makedirs(log_dir, exist_ok=True)
     tensorboard_callback = TensorBoard(log_dir=log_dir, histogram_freq=1)
-    callbacks = [tensorboard_callback]
+    # callbacks = [tensorboard_callback]
+
 
     with strategy.scope():
         # Everything that creates variables should be under the strategy scope.
         # In general this is only model construction & `compile()`.
         model = get_compiled_model(X_train)
 
-    model = model_fit(train_dataset, test_dataset, model, callbacks)
+    model = model_fit(train_dataset, test_dataset, model, tensorboard_callback)
 
     X_val1        = np.concatenate((lr_prect_scaled[0:tt5,:,:,:],elev_scaled[0:tt5,:,:,:]),axis=3)
     # X_val1        = lr_prect_scaled[0:tt5,:,:,:]

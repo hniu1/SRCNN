@@ -8,11 +8,11 @@ from sklearn.metrics import mean_absolute_error
 from sklearn.metrics import mean_squared_error
 
 def read_data(var,exp):
-    X_test = np.load(f'./output/{res}/X_test_fsrcnn_daily_{exp}.npy')
-    y_test = np.load(f'./output/{res}/y_test_fsrcnn_daily_{exp}.npy')
-    y_test_predict = np.load(f'./output/{res}/y_test_predict_fsrcnn_daily_{exp}.npy')
-    valloss = np.load(f'./output/{res}/val_loss_fsrcnn_daily_{exp}.npy')
-    trainloss = np.load(f'./output/{res}/train_loss_fsrcnn_daily_{exp}.npy')
+    X_test = np.load(f'./output/{res}/X_test_{res}_daily_{exp}.npy')
+    y_test = np.load(f'./output/{res}/y_test_{res}_daily_{exp}.npy')
+    y_test_predict = np.load(f'./output/{res}/y_test_predict_{res}_daily_{exp}.npy')
+    valloss = np.load(f'./output/{res}/val_loss_{res}_daily_{exp}.npy')
+    trainloss = np.load(f'./output/{res}/train_loss_{res}_daily_{exp}.npy')
     return X_test,y_test,y_test_predict,valloss,trainloss
     # return y_test,y_test_predict,valloss,trainloss
 
@@ -91,14 +91,14 @@ def main():
     if(var == "t2"):
         y_test = y_test - 273.15
         y_test_predict = y_test_predict - 273.15
-    plot_map(var,X_test,y_test,y_test_predict,exp)
+    # plot_map(var,X_test,y_test,y_test_predict,exp)
     plot_loss(var,val,train,exp)
     # plot_map(var,y_test,y_test_predict,exp)
     plot_diff(var,y_test,y_test_predict,exp)
 
 
 if __name__ == "__main__":
-    res = 'fsrcnn'
+    res = 'srcnn_mgpu'
     path_plot = f'visual/{res}'
     os.makedirs(path_plot, exist_ok=True)
 
