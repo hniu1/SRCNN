@@ -29,7 +29,7 @@ import time
 
 # Specify the details of experiment here
 exp = "v123"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1" # use one avaiable GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "" # use one avaiable GPU
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
 class TimingCallback(keras.callbacks.Callback):
