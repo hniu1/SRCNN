@@ -111,14 +111,7 @@ def train_loop(device, args, X_train, Y_train, X_val, Y_val, checkpoint_dir):
     criterion = nn.MSELoss().to(device)
     optimizer = optim.Adam(model.parameters(), lr=5e-5)
 
-    # AMP context
-    if args.amp:
-        if device.type == "cuda":
-            autocast_ctx = torch.autocast("cuda", dtype=torch.bfloat16)
-        else:
-            autocast_ctx = torch.autocast("cpu", dtype=torch.bfloat16)
-    else:
-        autocast_ctx = nullcontext()
+    autocast_ctx = torch.autocast(device_type="cuda", dtype=torch.bfloat16) if args.amp else nullcontext()
 
     best_val = float("inf")
     history = {"train": [], "val": []}
@@ -174,7 +167,7 @@ def train_loop(device, args, X_train, Y_train, X_val, Y_val, checkpoint_dir):
                        os.path.join(checkpoint_dir, "srcnn_best.pth"))
 
     # Save losses
-    if (not is_dist()) or get_rank() == 0:
+    if get_rank() == 0:
         with open(os.path.join(checkpoint_dir, "loss_history.json"), "w") as f:
             json.dump(history, f, indent=2)
 
