@@ -1,0 +1,40 @@
+certifi==2025.10.5
+cftime==1.6.5
+contourpy==1.3.3
+cycler==0.12.1
+filelock==3.19.1
+fonttools==4.60.1
+fsspec==2025.9.0
+Jinja2==3.1.6
+joblib @ file:///home/conda/feedstock_root/build_artifacts/joblib_1756321760188/work
+kiwisolver==1.4.9
+MarkupSafe==2.1.5
+matplotlib==3.10.7
+mpi4py==4.1.1
+mpmath==1.3.0
+netCDF4==1.7.3
+networkx==3.5
+numpy==2.3.3
+opencv-python==4.12.0
+opencv-python-headless==4.12.0
+packaging==25.0
+pandas==2.3.3
+pillow==11.3.0
+pyparsing==3.2.5
+python-dateutil==2.9.0.post0
+pytorch-triton-rocm==3.4.0
+pytz==2025.2
+scikit-learn @ file:///home/conda/feedstock_root/build_artifacts/scikit-learn_1757406006820/work/dist/scikit_learn-1.7.2-cp312-cp312-linux_x86_64.whl#sha256=129fb53912f867c66de404c45e47a17c8d2466e12961a80dadee213c841e7450
+scipy @ file:///home/conda/feedstock_root/build_artifacts/scipy-split_1761689805279/work/dist/scipy-1.16.3-cp312-cp312-linux_x86_64.whl#sha256=99192edb305485cb50d0365378a3f86e5776626d1565153a1a3c2d4be32f8b87
+setuptools==80.9.0
+six==1.17.0
+sympy==1.14.0
+threadpoolctl @ file:///home/conda/feedstock_root/build_artifacts/threadpoolctl_1741878222898/work
+torch==2.8.0+rocm6.4
+torchaudio==2.8.0+rocm6.4
+torchvision==0.23.0+rocm6.4
+tqdm==4.67.1
+typing_extensions==4.15.0
+tzdata==2025.2
+wheel==0.45.1
+xarray==2025.10.1
