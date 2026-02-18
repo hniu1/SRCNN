@@ -6,3 +6,4 @@ checkpoints_SRCNN_v1/
 SRCNN_frontier copy.py
 SRCNN-tmax-clean_NA_R1_frontier.py
 __pycache__/data_util_srcnn.cpython-312.pyc
+__pycache__/dataread_mem_srcnn.cpython-312.pyc

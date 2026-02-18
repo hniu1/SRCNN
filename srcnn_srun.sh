@@ -31,10 +31,40 @@ export MIOPEN_CUSTOM_CACHE_DIR=$MIOPEN_USER_DB_PATH
 rm -rf $MIOPEN_USER_DB_PATH
 mkdir -p $MIOPEN_USER_DB_PATH
 
+# -----------------------------
+# Run configuration
+# -----------------------------
 # Downscaling mode:
-# - 1to0p25: low=1degto0p25deg, high=0p25deg this mode is not yet fully supported yet as it requires different srcnn structure
+# - 1to0p25: low=1degto0p25deg, high=0p25deg
 # - 0p25to0p0416: low=0p25degto0p0416deg, high=trim
 DOWNSCALE_MODE=${DOWNSCALE_MODE:-0p25to0p0416}
+
+EXP=${EXP:-SRCNN_v1}
+VAR=${VAR:-tmax_dy}
+YEAR_START=${YEAR_START:-1980}
+YEAR_END=${YEAR_END:-1981}
+EPOCHS=${EPOCHS:-50}
+BATCH_SIZE=${BATCH_SIZE:-8}
+NUM_WORKERS=${NUM_WORKERS:-6}
+SCALER=${SCALER:-standard}
+
+# Lazy cache directories
+PATH_OUTPUT=${PATH_OUTPUT:-./output/${EXP}}
+CHECKPOINT_DIR=${CHECKPOINT_DIR:-./checkpoints_${EXP}}
+
+# Set PREPARE_DATA=1 to force cache rebuild before training
+PREPARE_DATA=${PREPARE_DATA:-0}
+
+# Set USE_AMP=1 to enable --amp
+USE_AMP=${USE_AMP:-0}
+
+EXTRA_ARGS=""
+if [ "$PREPARE_DATA" -eq 1 ]; then
+  EXTRA_ARGS="$EXTRA_ARGS --prepare-data"
+fi
+if [ "$USE_AMP" -eq 1 ]; then
+  EXTRA_ARGS="$EXTRA_ARGS --amp"
+fi
 
 # Run 1 task (1 GPU)
 srun \
@@ -43,10 +73,15 @@ srun \
         --master_port=3442 \
         --base-dir "/lustre/orion/proj-shared/cli138/dr6/NA-Downscaling/data" \
         --dir-elev "/lustre/orion/proj-shared/cli138/dr6/NA-Downscaling/DEM" \
-        --exp "SRCNN_v1" \
-      --downscale-mode "$DOWNSCALE_MODE" \
-        --var "tmax_dy" \
-        --year-start 1980 \
-        --year-end 1981 \
-        --epochs 50 \
-      --batch-size 8
+        --exp "$EXP" \
+        --downscale-mode "$DOWNSCALE_MODE" \
+        --path-output "$PATH_OUTPUT" \
+        --checkpoint-dir "$CHECKPOINT_DIR" \
+        --scaler "$SCALER" \
+        --var "$VAR" \
+        --year-start "$YEAR_START" \
+        --year-end "$YEAR_END" \
+        --epochs "$EPOCHS" \
+        --batch-size "$BATCH_SIZE" \
+        --num-workers "$NUM_WORKERS" \
+        $EXTRA_ARGS
