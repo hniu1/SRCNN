@@ -37,6 +37,8 @@ def build_parser():
     p.add_argument("--base-dir", type=str, default="/lustre/orion/proj-shared/cli138/dr6/NA-Downscaling/data")
     p.add_argument("--dir-elev", type=str, default="/lustre/orion/proj-shared/cli138/dr6/NA-Downscaling/DEM")
     p.add_argument("--exp", type=str, default="SRCNN_v1")
+    p.add_argument("--downscale-mode", type=str, default="0p25to0p0416",
+                   choices=["1to0p25", "0p25to0p0416"])
     p.add_argument("--var", type=str, default="tmax_dy")
     p.add_argument("--year-start", type=int, default=1980)
     p.add_argument("--year-end", type=int, default=1981)
@@ -61,6 +63,14 @@ def get_world():
     return dist.get_world_size() if is_dist() else 1
 
 
+def check_finite_np(name, arr):
+    finite = np.isfinite(arr)
+    if finite.all():
+        return
+    bad = int(arr.size - finite.sum())
+    raise ValueError(f"{name} contains {bad} non-finite values (NaN/Inf)")
+
+
 # =============================== DATASET ==============================
 
 class SRCNNDataset(Dataset):
@@ -80,6 +90,11 @@ class SRCNNDataset(Dataset):
 # ============================== TRAIN LOOP ============================
 
 def train_loop(device, args, X_train, Y_train, X_val, Y_val, checkpoint_dir):
+
+    check_finite_np("X_train", X_train)
+    check_finite_np("Y_train", Y_train)
+    check_finite_np("X_val", X_val)
+    check_finite_np("Y_val", Y_val)
 
     dataset = SRCNNDataset(X_train, Y_train)
 
@@ -131,7 +146,7 @@ def train_loop(device, args, X_train, Y_train, X_val, Y_val, checkpoint_dir):
         model.train()
         train_loss = 0.0
 
-        for x, y in loader:
+        for batch_idx, (x, y) in enumerate(loader):
             x = x.to(device)
             y = y.to(device)
 
@@ -140,6 +155,14 @@ def train_loop(device, args, X_train, Y_train, X_val, Y_val, checkpoint_dir):
             with autocast_ctx:
                 pred = model(x)
                 loss = criterion(pred, y)
+
+            if not torch.isfinite(loss):
+                raise RuntimeError(
+                    f"Non-finite train loss at epoch={epoch+1}, batch={batch_idx}. "
+                    f"x_finite={bool(torch.isfinite(x).all())}, "
+                    f"y_finite={bool(torch.isfinite(y).all())}, "
+                    f"pred_finite={bool(torch.isfinite(pred).all())}"
+                )
 
             loss.backward()
             optimizer.step()
@@ -153,12 +176,19 @@ def train_loop(device, args, X_train, Y_train, X_val, Y_val, checkpoint_dir):
         val_loss = 0.0
         model.eval()
         with torch.no_grad():
-            for x, y in val_loader:
+            for batch_idx, (x, y) in enumerate(val_loader):
                 x = x.to(device)
                 y = y.to(device)
                 with autocast_ctx:
                     pred = model(x)
                     loss = criterion(pred, y)
+                if not torch.isfinite(loss):
+                    raise RuntimeError(
+                        f"Non-finite val loss at epoch={epoch+1}, batch={batch_idx}. "
+                        f"x_finite={bool(torch.isfinite(x).all())}, "
+                        f"y_finite={bool(torch.isfinite(y).all())}, "
+                        f"pred_finite={bool(torch.isfinite(pred).all())}"
+                    )
                 val_loss += loss.item()
 
         val_loss /= max(1, len(val_loader))
@@ -250,17 +280,18 @@ def main():
     Y = None
     if rank == 0:
         print("Reading data...")
-        hr = read_data(args.var, deg=0.0416, res="high",
+        print(f"Downscale mode: {args.downscale_mode}")
+        hr = read_data(args.var, res="high",
                     year_start=args.year_start, year_end=args.year_end,
-                    base_dir=base)
+            base_dir=base, downscale_mode=args.downscale_mode)
 
-        lr = read_data(args.var, deg=0.25, res="low",
+        lr = read_data(args.var, res="low",
                     year_start=args.year_start, year_end=args.year_end,
-                    base_dir=base)
+            base_dir=base, downscale_mode=args.downscale_mode)
 
         T = min(hr.shape[0], lr.shape[0])
         hr = hr[:T]
-        lr = lr[:T] 
+        lr = lr[:T]
 
         elev = read_elev(T, dir_elev)
 
@@ -268,8 +299,15 @@ def main():
         hr_scaled, scaler = standardize_like(hr)
         lr_scaled, _ = standardize_like(lr, scaler)
 
+        check_finite_np("elev_scaled", elev_scaled)
+        check_finite_np("hr_scaled", hr_scaled)
+        check_finite_np("lr_scaled", lr_scaled)
+
         X = np.concatenate([lr_scaled, elev_scaled], axis=-1)
         Y = hr_scaled
+
+        check_finite_np("X", X)
+        check_finite_np("Y", Y)
 
     # Broadcast prepared arrays to every rank so they can proceed independently
     if world > 1:
