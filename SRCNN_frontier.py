@@ -11,9 +11,11 @@ from mpi4py import MPI
 import os
 import argparse
 import json
+import time
 from contextlib import nullcontext
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -125,11 +127,13 @@ def train_loop(device, args, checkpoint_dir, train_dataset, val_dataset):
 
     best_val = float("inf")
     history = {"train": [], "val": []}
+    epoch_times = []
 
     for epoch in range(args.epochs):
         if is_dist() and isinstance(train_loader.sampler, DistributedSampler):
             train_loader.sampler.set_epoch(epoch)
 
+        epoch_start = time.perf_counter()
         model.train()
         train_loss = 0.0
 
@@ -158,8 +162,7 @@ def train_loop(device, args, checkpoint_dir, train_dataset, val_dataset):
         train_loss /= max(1, len(train_loader))
         history["train"].append(train_loss)
 
-        model.eval()
-        val_loss = 0.0
+        model.eval()        val_loss = 0.0
         with torch.no_grad():
             for batch_idx, (x, y) in enumerate(val_loader):
                 x = x.to(device, non_blocking=True)
@@ -179,6 +182,7 @@ def train_loop(device, args, checkpoint_dir, train_dataset, val_dataset):
 
         val_loss /= max(1, len(val_loader))
         history["val"].append(val_loss)
+        epoch_times.append(time.perf_counter() - epoch_start)
 
         if get_rank() == 0:
             print(f"[Epoch {epoch+1}/{args.epochs}] Train={train_loss:.6f}, Val={val_loss:.6f}", flush=True)
@@ -193,6 +197,15 @@ def train_loop(device, args, checkpoint_dir, train_dataset, val_dataset):
     if (not is_dist()) or get_rank() == 0:
         with open(checkpoint_dir / "loss_history.json", "w") as f:
             json.dump(history, f, indent=2)
+
+        # Save .npy loss curves and epoch times (same format as old TF code)
+        tag = f"{args.exp}_{args.var}"
+        np.save(str(checkpoint_dir / f"train_loss_daily_{tag}.npy"),
+                np.array(history["train"], dtype=np.float32))
+        np.save(str(checkpoint_dir / f"val_loss_daily_{tag}.npy"),
+                np.array(history["val"], dtype=np.float32))
+        np.save(str(checkpoint_dir / f"time_daily_{tag}.npy"),
+                np.array(epoch_times, dtype=np.float32))
 
 
 

@@ -72,6 +72,75 @@ To force cache rebuild:
 python3 -u SRCNN_frontier.py ... --prepare-data
 ```
 
+## Inference
+
+### Python entrypoint
+
+Use `srcnn_infer.py` to run batched inference from cached lazy data and a trained checkpoint:
+
+```bash
+cd /lustre/orion/proj-shared/cli138/7hn/SRCNN
+python3 -u srcnn_infer.py \
+  --exp SRCNN_v1 \
+  --split val \
+  --path-output ./output/SRCNN_v1 \
+  --checkpoint-dir ./checkpoints_SRCNN_v1 \
+  --batch-size 4 \
+  --num-workers 0 \
+  --output-prefix infer
+```
+
+### SLURM helper
+
+You can also submit inference as a batch job:
+
+```bash
+cd /lustre/orion/proj-shared/cli138/7hn/SRCNN
+sbatch srcnn_infer_srun.sh
+```
+
+Override defaults at submit time:
+
+```bash
+EXP=SRCNN_v1 SPLIT=val BATCH_SIZE=4 NUM_WORKERS=0 sbatch srcnn_infer_srun.sh
+```
+
+Inference writes outputs under `./checkpoints_<exp>/inference/`:
+
+| File | Description |
+|---|---|
+| `y_{split}_predict_daily_{exp}_{var}.npy` | Model predictions, inverse-transformed, shape `(N, H, W, 1)` float32 |
+| `y_{split}_daily_{exp}_{var}.npy` | True HR labels, inverse-transformed, shape `(N, H, W, 1)` float32 |
+| `X_{split}_daily_{exp}_{var}.npy` | LR input (first channel), inverse-transformed, shape `(N, H, W, 1)` float32 |
+| `{prefix}_metrics_{split}.json` | MSE (scaled space), sample count, file paths |
+
+If `--save-scaled` is passed, it also keeps:
+
+- `{prefix}_pred_scaled_{split}.npy`
+- `{prefix}_true_scaled_{split}.npy`
+
+### Spatial resolution at inference
+
+Inference inputs are **always at HR resolution**, regardless of downscale mode. The LR field (`x_{split}.npy`) was already resampled to the HR grid during preprocessing, so all three arrays — LR input, HR target, DEM — share the same spatial dimensions `(H, W)`. The model sees `(2, H, W)` per sample (LR + elevation) and outputs `(1, H, W)`.
+
+### Inference for different downscale modes
+
+`srcnn_infer.py` does not need a `--downscale-mode` flag. It only reads the cached `.npy` files and `scaler.pkl`, which were already built for a specific mode during training. To run inference for each mode, point to the corresponding training outputs:
+
+```bash
+# 0p25to0p0416 run
+python3 -u srcnn_infer.py \
+  --exp SRCNN_0p25to0p0416 \
+  --path-output ./output/SRCNN_0p25to0p0416 \
+  --checkpoint-dir ./checkpoints_SRCNN_0p25to0p0416
+
+# 1to0p25 run
+python3 -u srcnn_infer.py \
+  --exp SRCNN_1to0p25 \
+  --path-output ./output/SRCNN_1to0p25 \
+  --checkpoint-dir ./checkpoints_SRCNN_1to0p25
+```
+
 ## Cache artifacts
 
 Under `./output/<exp>/`:
@@ -83,9 +152,14 @@ Under `./output/<exp>/`:
 
 Under `./checkpoints_<exp>/` (or custom checkpoint dir):
 
-- `scaler.pkl`
-- `srcnn_best.pth`
-- `loss_history.json`
+| File | Description |
+|---|---|
+| `scaler.pkl` | Fitted scaler (used by both training and inference) |
+| `srcnn_best.pth` | Best model weights (lowest val loss) |
+| `loss_history.json` | Full train/val loss per epoch (JSON) |
+| `train_loss_daily_{exp}_{var}.npy` | Train loss per epoch, shape `(epochs,)` float32 |
+| `val_loss_daily_{exp}_{var}.npy` | Val loss per epoch, shape `(epochs,)` float32 |
+| `time_daily_{exp}_{var}.npy` | Wall-clock seconds per epoch, shape `(epochs,)` float32 |
 
 ## Notes
 
