@@ -28,6 +28,13 @@ export MIOPEN_CUSTOM_CACHE_DIR=$MIOPEN_USER_DB_PATH
 rm -rf "$MIOPEN_USER_DB_PATH"
 mkdir -p "$MIOPEN_USER_DB_PATH"
 
+# Runtime knobs (override at submit time, e.g. EXP=SRCNN_v1 SPLIT=val sbatch srcnn_infer_srun.sh)
+# EXP: experiment name used to locate cache/checkpoint directories.
+# SPLIT: dataset split to run inference on (train or val).
+# BATCH_SIZE: inference batch size per GPU.
+# NUM_WORKERS: DataLoader CPU worker processes (0 is safest on Frontier).
+# USE_AMP: set 1 to enable AMP/bfloat16 inference, 0 to disable.
+# OUTPUT_PREFIX: prefix for metrics/scaled artifact names.
 EXP=${EXP:-SRCNN_v1}
 SPLIT=${SPLIT:-val}
 BATCH_SIZE=${BATCH_SIZE:-4}
